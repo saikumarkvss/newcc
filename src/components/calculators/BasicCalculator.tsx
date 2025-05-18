@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Clock, Trash2, Delete } from 'lucide-react';
 import Button from '../ui/Button';
 import { calculate, calculatePercentage } from '../../utils/calculations';
@@ -16,7 +16,6 @@ const BasicCalculator: React.FC = () => {
   const [percentValue, setPercentValue] = useState<string>('');
   const [lastOperator, setLastOperator] = useState<string>('');
   const [previousResult, setPreviousResult] = useState<number>(0);
-  const [fullExpression, setFullExpression] = useState<string>('');
 
   const clear = () => {
     setInput('0');
@@ -25,33 +24,30 @@ const BasicCalculator: React.FC = () => {
     setPreviousResult(0);
     setShowResult(false);
     setLastOperator('');
-    setFullExpression('');
   };
 
   const appendDigit = (digit: string) => {
     if (showResult) {
-      setPreviousResult(result);
+      setPreviousResult(parseFloat(input));
       setInput(digit);
       setCalculation('');
       setShowResult(false);
-      setFullExpression('');
     } else {
       setInput(input === '0' ? digit : input + digit);
     }
   };
 
   const appendOperator = (operator: string) => {
-    const currentValue = parseFloat(input);
-
+    const currentValue = showResult ? result : parseFloat(input);
     if (showResult) {
-      setFullExpression(`${result}${operator}`);
       setCalculation(`${result}${operator}`);
+    } else if (calculation === '') {
+      setCalculation(`${currentValue}${operator}`);
     } else {
-      const newExpression = fullExpression + input + operator;
-      setFullExpression(newExpression);
-      setCalculation(newExpression);
+      const newResult = calculate(calculation + currentValue);
+      setCalculation(`${newResult}${operator}`);
+      setPreviousResult(newResult);
     }
-
     setInput('0');
     setShowResult(false);
     setLastOperator(operator);
@@ -79,40 +75,41 @@ const BasicCalculator: React.FC = () => {
     const currentValue = parseFloat(input);
     let result;
 
-    if (lastOperator === '+') {
-      result = previousResult + calculatePercentage(previousResult, percentage);
-    } else if (lastOperator === '-') {
-      result = previousResult - calculatePercentage(previousResult, percentage);
+    if (lastOperator && previousResult !== 0) {
+      if (lastOperator === '+') {
+        result = previousResult + calculatePercentage(previousResult, percentage);
+        setCalculation(`${previousResult} + ${percentage}%`);
+      } else if (lastOperator === '-') {
+        result = previousResult - calculatePercentage(previousResult, percentage);
+        setCalculation(`${previousResult} - ${percentage}%`);
+      } else {
+        result = calculatePercentage(currentValue, percentage);
+        setCalculation(`${currentValue} × ${percentage}%`);
+      }
     } else {
       result = calculatePercentage(currentValue, percentage);
+      setCalculation(`${currentValue} × ${percentage}%`);
     }
 
     setResult(result);
     setInput(result.toString());
     setPreviousResult(result);
     setShowResult(true);
-
-    const calcStr = `${previousResult}${lastOperator}${percentage}%`;
-    setCalculation(calcStr);
-    setFullExpression(calcStr);
-    setHistory(prev => [{ calculation: calcStr, result }, ...prev]);
+    setHistory(prev => [{ calculation: calculation + ` ${percentage}%`, result }, ...prev]);
     setLastOperator('');
   };
 
   const calculateResult = () => {
     try {
-      const fullCalculation = fullExpression + input;
+      const fullCalculation = calculation + input;
       const expressionToEvaluate = fullCalculation.replace(/×/g, '*').replace(/÷/g, '/');
       const calculatedResult = calculate(expressionToEvaluate);
-
       setResult(calculatedResult);
       setPreviousResult(calculatedResult);
-      setCalculation(fullCalculation + ' =');
-      setFullExpression(fullCalculation);
+      setCalculation(fullCalculation);
       setInput(calculatedResult.toString());
       setShowResult(true);
-
-      setHistory(prev => [{ calculation: fullCalculation + ' =', result: calculatedResult }, ...prev]);
+      setHistory(prev => [{ calculation: fullCalculation, result: calculatedResult }, ...prev]);
     } catch (error) {
       setInput('Error');
     }
@@ -142,17 +139,18 @@ const BasicCalculator: React.FC = () => {
   return (
     <div className="rounded-xl overflow-hidden shadow-lg bg-background animate-fade-in">
       <div className="calculator-screen">
-        <div className="flex flex-col items-end w-full">
-          <div className="text-text-secondary text-sm h-5 mb-1 break-all text-right">
+        <div className="flex flex-col items-end w-full overflow-x-auto">
+          <div className="text-text-secondary text-sm h-5 mb-1 whitespace-nowrap">
             {formatCalculation(calculation)}
           </div>
-          <div className="text-4xl font-bold text-text-primary mb-2 break-all text-right max-w-full overflow-x-auto">
+          <div className="text-4xl font-bold text-text-primary mb-2 text-right whitespace-nowrap overflow-x-auto w-full">
             {formatIndianNumber(parseFloat(showResult ? result.toString() : input))}
           </div>
-          <div className="text-text-secondary text-xs mb-3">
+          <div className="text-text-secondary text-xs mb-3 whitespace-nowrap">
             {numberToIndianWords(parseFloat(showResult ? result.toString() : input))}
           </div>
         </div>
+
         <div className="flex justify-between">
           <Button 
             variant="text" 
@@ -174,6 +172,7 @@ const BasicCalculator: React.FC = () => {
               Clear
             </Button>
           </div>
+
           {history.length === 0 ? (
             <p className="text-text-secondary text-sm">No calculations yet.</p>
           ) : (
@@ -183,7 +182,9 @@ const BasicCalculator: React.FC = () => {
                   <div className="text-xs text-text-secondary">
                     {formatCalculation(item.calculation)}
                   </div>
-                  <div className="text-md font-medium">{formatIndianNumber(item.result)}</div>
+                  <div className="text-md font-medium">
+                    {formatIndianNumber(item.result)}
+                  </div>
                 </div>
               ))}
             </div>
