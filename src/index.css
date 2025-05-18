@@ -1,0 +1,56 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  body {
+    @apply bg-background text-text-primary antialiased;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  
+  input:focus, button:focus {
+    @apply outline-none;
+  }
+}
+
+@layer components {
+  .calculator-button {
+    @apply flex items-center justify-center rounded-button bg-background-light text-text-primary 
+           font-medium text-xl w-16 h-16 transition-colors active:bg-background-dark
+           active:animate-button-press;
+  }
+  
+  .calculator-button-orange {
+    @apply bg-primary text-white active:bg-primary-dark;
+  }
+  
+  .calculator-button-small {
+    @apply text-base w-14 h-14;
+  }
+  
+  .calculator-screen {
+    @apply bg-background min-h-[180px] w-full rounded-t-xl p-4 flex flex-col items-end justify-end 
+           border-b border-background-light;
+  }
+  
+  .calculator-keypad {
+    @apply grid grid-cols-4 gap-3 p-4 bg-background;
+  }
+  
+  .custom-scrollbar {
+    @apply scrollbar-thin scrollbar-thumb-primary scrollbar-track-background-light;
+  }
+}
+
+/* For transparent status bar on mobile */
+@supports (padding-top: env(safe-area-inset-top)) {
+  .safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+}
