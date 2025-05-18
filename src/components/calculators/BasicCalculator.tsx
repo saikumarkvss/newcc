@@ -44,6 +44,7 @@ const BasicCalculator: React.FC = () => {
   const currentValue = showResult ? result : parseFloat(input);
 
   if (showResult) {
+    // Continue from result instead of recalculating
     setCalculation(`${result}${operator}`);
   } else if (calculation === '') {
     setCalculation(`${currentValue}${operator}`);
@@ -57,6 +58,7 @@ const BasicCalculator: React.FC = () => {
   setShowResult(false);
   setLastOperator(operator);
 };
+;
 
 
   // Handle decimal point
