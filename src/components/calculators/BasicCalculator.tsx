@@ -14,16 +14,12 @@ const BasicCalculator: React.FC = () => {
   const [customPercentages, setCustomPercentages] = useState<number[]>([2, 1.8, 1.7]);
   const [editingPercentIndex, setEditingPercentIndex] = useState<number | null>(null);
   const [percentValue, setPercentValue] = useState<string>('');
-  const [lastOperator, setLastOperator] = useState<string>('');
-  const [previousResult, setPreviousResult] = useState<number>(0);
 
   const clear = () => {
     setInput('0');
     setCalculation('');
     setResult(0);
-    setPreviousResult(0);
     setShowResult(false);
-    setLastOperator('');
   };
 
   const appendDigit = (digit: string) => {
@@ -37,23 +33,30 @@ const BasicCalculator: React.FC = () => {
   };
 
   const appendOperator = (operator: string) => {
-    const currentValue = parseFloat(input);
-    let newCalc = calculation;
+    if (input === 'Error') return;
 
+    let newCalc = calculation;
+    
     if (showResult) {
+      // Continue calculation with previous result
       newCalc = `${result}${operator}`;
+    } else if (calculation.includes('=')) {
+      // Start new calculation after equals
+      newCalc = `${input}${operator}`;
     } else if (!calculation) {
-      newCalc = `${currentValue}${operator}`;
+      // First operator press
+      newCalc = `${input}${operator}`;
     } else {
-      const newResult = calculate(calculation + currentValue);
-      newCalc = `${newResult}${operator}`;
-      setPreviousResult(newResult);
+      // Calculate intermediate result
+      const currentValue = parseFloat(input);
+      const calcResult = calculate(calculation + currentValue);
+      newCalc = `${calcResult}${operator}`;
+      setResult(calcResult);
     }
 
     setCalculation(newCalc);
     setInput('0');
     setShowResult(false);
-    setLastOperator(operator);
   };
 
   const appendDecimal = () => {
@@ -71,46 +74,68 @@ const BasicCalculator: React.FC = () => {
   };
 
   const handlePercentage = (percentage: number) => {
-    const currentValue = parseFloat(input);
-    let finalResult = 0;
+    if (isNaN(percentage) || input === 'Error') return;
 
-    if (lastOperator === '+') {
-      finalResult = previousResult + calculatePercentage(previousResult, percentage);
-    } else if (lastOperator === '-') {
-      finalResult = previousResult - calculatePercentage(previousResult, percentage);
+    const currentValue = parseFloat(input);
+    if (isNaN(currentValue)) return;
+
+    let resultValue: number;
+    let calcStr: string;
+
+    if (calculation.includes('+')) {
+      // For addition: 1000 + 2% = 1000 + (1000 * 0.02) = 1020
+      const baseValue = calculate(calculation.replace(/\+.*/, ''));
+      const percentageAmount = calculatePercentage(baseValue, percentage);
+      resultValue = baseValue + percentageAmount;
+      calcStr = `${baseValue} + ${percentage}%`;
+    } else if (calculation.includes('-')) {
+      // For subtraction: 1000 - 2% = 1000 - (1000 * 0.02) = 980
+      const baseValue = calculate(calculation.replace(/-.*/, ''));
+      const percentageAmount = calculatePercentage(baseValue, percentage);
+      resultValue = baseValue - percentageAmount;
+      calcStr = `${baseValue} - ${percentage}%`;
     } else {
-      finalResult = calculatePercentage(currentValue, percentage);
+      // For standalone percentage: 1000 * 2% = 20
+      resultValue = calculatePercentage(currentValue, percentage);
+      calcStr = `${currentValue} × ${percentage}%`;
     }
 
-    const calcStr =
-      lastOperator === '+' || lastOperator === '-'
-        ? `${previousResult} ${lastOperator} ${percentage}%`
-        : `${currentValue} × ${percentage}%`;
-
-    setResult(finalResult);
-    setInput(finalResult.toString());
+    setResult(resultValue);
+    setInput(resultValue.toString());
     setCalculation(calcStr + ' =');
-    setPreviousResult(finalResult);
     setShowResult(true);
-    setLastOperator('');
 
-    setHistory(prev => [{ calculation: calcStr + ' =', result: finalResult }, ...prev]);
+    setHistory(prev => [{ calculation: calcStr + ' =', result: resultValue }, ...prev]);
   };
 
   const calculateResult = () => {
     try {
-      const expression = (calculation + input).replace(/×/g, '*').replace(/÷/g, '/');
+      if (!calculation) {
+        // If no calculation, just show the input as result
+        setResult(parseFloat(input));
+        setInput(input);
+        setShowResult(true);
+        return;
+      }
+
+      if (calculation.includes('=')) {
+        // If already calculated, do nothing
+        return;
+      }
+
+      const expression = calculation + input;
       const calcResult = calculate(expression);
 
       setResult(calcResult);
-      setPreviousResult(calcResult);
-      setCalculation(calculation + input + ' =');
+      setCalculation(expression + ' =');
       setInput(calcResult.toString());
       setShowResult(true);
 
-      setHistory(prev => [{ calculation: calculation + input + ' =', result: calcResult }, ...prev]);
+      setHistory(prev => [{ calculation: expression + ' =', result: calcResult }, ...prev]);
     } catch (error) {
       setInput('Error');
+      setCalculation('');
+      setShowResult(false);
     }
   };
 
@@ -134,17 +159,21 @@ const BasicCalculator: React.FC = () => {
   const clearHistory = () => setHistory([]);
 
   const displayedValue = showResult ? result : parseFloat(input);
+  const displayText = formatIndianNumber(displayedValue);
+  const fullDisplayText = displayText.startsWith(',') ? '0' + displayText : displayText;
 
   return (
     <div className="rounded-xl overflow-hidden shadow-lg bg-background animate-fade-in">
       {/* Calculator Screen */}
       <div className="calculator-screen p-4">
         <div className="flex flex-col items-end w-full">
-          <div className="text-text-secondary text-sm h-5 mb-1">{formatCalculation(calculation)}</div>
-          <div className="text-4xl font-bold text-text-primary mb-2 break-all text-right">
-            {formatIndianNumber(displayedValue)}
+          <div className="text-text-secondary text-sm h-5 mb-1 min-h-[20px]">
+            {formatCalculation(calculation)}
           </div>
-          <div className="text-text-secondary text-xs mb-3">
+          <div className="text-4xl font-bold text-text-primary mb-2 break-all text-right">
+            {fullDisplayText}
+          </div>
+          <div className="text-text-secondary text-xs mb-3 min-h-[16px]">
             {numberToIndianWords(displayedValue)}
           </div>
         </div>
