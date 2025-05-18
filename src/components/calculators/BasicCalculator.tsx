@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Clock, Trash2, Delete } from 'lucide-react';
 import Button from '../ui/Button';
 import { calculate, calculatePercentage } from '../../utils/calculations';
@@ -10,14 +10,13 @@ const BasicCalculator: React.FC = () => {
   const [result, setResult] = useState<number>(0);
   const [showResult, setShowResult] = useState<boolean>(false);
   const [showHistory, setShowHistory] = useState<boolean>(false);
-  const [history, setHistory] = useState<Array<{calculation: string, result: number}>>([]);
+  const [history, setHistory] = useState<Array<{ calculation: string, result: number }>>([]);
   const [customPercentages, setCustomPercentages] = useState<number[]>([2, 1.8, 1.7]);
   const [editingPercentIndex, setEditingPercentIndex] = useState<number | null>(null);
   const [percentValue, setPercentValue] = useState<string>('');
   const [lastOperator, setLastOperator] = useState<string>('');
   const [previousResult, setPreviousResult] = useState<number>(0);
 
-  // Reset calculator state
   const clear = () => {
     setInput('0');
     setCalculation('');
@@ -27,10 +26,8 @@ const BasicCalculator: React.FC = () => {
     setLastOperator('');
   };
 
-  // Add digit to input
   const appendDigit = (digit: string) => {
     if (showResult) {
-      setPreviousResult(parseFloat(input));
       setInput(digit);
       setCalculation('');
       setShowResult(false);
@@ -39,95 +36,84 @@ const BasicCalculator: React.FC = () => {
     }
   };
 
-  // Add operator to calculation
   const appendOperator = (operator: string) => {
-  const currentValue = showResult ? result : parseFloat(input);
+    const currentValue = parseFloat(input);
+    let newCalc = calculation;
 
-  if (showResult) {
-    // Continue from result instead of recalculating
-    setCalculation(`${result}${operator}`);
-  } else if (calculation === '') {
-    setCalculation(`${currentValue}${operator}`);
-  } else {
-    const newResult = calculate(calculation + currentValue);
-    setCalculation(`${newResult}${operator}`);
-    setPreviousResult(newResult);
-  }
+    if (showResult) {
+      newCalc = `${result}${operator}`;
+    } else if (!calculation) {
+      newCalc = `${currentValue}${operator}`;
+    } else {
+      const newResult = calculate(calculation + currentValue);
+      newCalc = `${newResult}${operator}`;
+      setPreviousResult(newResult);
+    }
 
-  setInput('0');
-  setShowResult(false);
-  setLastOperator(operator);
-};
-;
+    setCalculation(newCalc);
+    setInput('0');
+    setShowResult(false);
+    setLastOperator(operator);
+  };
 
-
-  // Handle decimal point
   const appendDecimal = () => {
     if (!input.includes('.')) {
       setInput(input + '.');
     }
   };
 
-  // Toggle positive/negative
   const toggleSign = () => {
     setInput(input.startsWith('-') ? input.slice(1) : '-' + input);
   };
 
-  // Handle backspace
   const handleBackspace = () => {
-    if (input.length > 1) {
-      setInput(input.slice(0, -1));
-    } else {
-      setInput('0');
-    }
+    setInput(input.length > 1 ? input.slice(0, -1) : '0');
   };
 
-  // Handle percentage button
   const handlePercentage = (percentage: number) => {
     const currentValue = parseFloat(input);
-    let result;
-    
+    let finalResult = 0;
+
     if (lastOperator === '+') {
-      result = previousResult + calculatePercentage(previousResult, percentage);
-      setCalculation(`${previousResult} + ${percentage}% =`);
+      finalResult = previousResult + calculatePercentage(previousResult, percentage);
     } else if (lastOperator === '-') {
-      result = previousResult - calculatePercentage(previousResult, percentage);
-      setCalculation(`${previousResult} - ${percentage}% =`);
+      finalResult = previousResult - calculatePercentage(previousResult, percentage);
     } else {
-      result = calculatePercentage(currentValue, percentage);
-      setCalculation(`${currentValue} × ${percentage}% =`);
+      finalResult = calculatePercentage(currentValue, percentage);
     }
-    
-    setResult(result);
-    setInput(result.toString());
-    setPreviousResult(result);
+
+    const calcStr =
+      lastOperator === '+' || lastOperator === '-'
+        ? `${previousResult} ${lastOperator} ${percentage}%`
+        : `${currentValue} × ${percentage}%`;
+
+    setResult(finalResult);
+    setInput(finalResult.toString());
+    setCalculation(calcStr + ' =');
+    setPreviousResult(finalResult);
     setShowResult(true);
-    
-    setHistory(prev => [{ calculation: calculation + ` ${percentage}% =`, result }, ...prev]);
     setLastOperator('');
+
+    setHistory(prev => [{ calculation: calcStr + ' =', result: finalResult }, ...prev]);
   };
 
-  // Calculate result
   const calculateResult = () => {
     try {
-      const fullCalculation = calculation + input;
-      const expressionToEvaluate = fullCalculation.replace(/×/g, '*').replace(/÷/g, '/');
-      
-      const calculatedResult = calculate(expressionToEvaluate);
-      
-      setResult(calculatedResult);
-      setPreviousResult(calculatedResult);
-      setCalculation(fullCalculation + ' =');
-      setInput(calculatedResult.toString());
+      const expression = (calculation + input).replace(/×/g, '*').replace(/÷/g, '/');
+      const calcResult = calculate(expression);
+
+      setResult(calcResult);
+      setPreviousResult(calcResult);
+      setCalculation(calculation + input + ' =');
+      setInput(calcResult.toString());
       setShowResult(true);
-      
-      setHistory(prev => [{ calculation: fullCalculation + ' =', result: calculatedResult }, ...prev]);
+
+      setHistory(prev => [{ calculation: calculation + input + ' =', result: calcResult }, ...prev]);
     } catch (error) {
       setInput('Error');
     }
   };
 
-  // Handle editing custom percentages
   const startEditingPercent = (index: number) => {
     setEditingPercentIndex(index);
     setPercentValue(customPercentages[index].toString());
@@ -137,54 +123,40 @@ const BasicCalculator: React.FC = () => {
     if (editingPercentIndex !== null) {
       const newValue = parseFloat(percentValue);
       if (!isNaN(newValue)) {
-        const updatedPercentages = [...customPercentages];
-        updatedPercentages[editingPercentIndex] = newValue;
-        setCustomPercentages(updatedPercentages);
+        const updated = [...customPercentages];
+        updated[editingPercentIndex] = newValue;
+        setCustomPercentages(updated);
       }
       setEditingPercentIndex(null);
     }
   };
 
-  // Clear history
-  const clearHistory = () => {
-    setHistory([]);
-  };
+  const clearHistory = () => setHistory([]);
+
+  const displayedValue = showResult ? result : parseFloat(input);
 
   return (
     <div className="rounded-xl overflow-hidden shadow-lg bg-background animate-fade-in">
       {/* Calculator Screen */}
-      <div className="calculator-screen">
+      <div className="calculator-screen p-4">
         <div className="flex flex-col items-end w-full">
-          {/* Calculation */}
-          <div className="text-text-secondary text-sm h-5 mb-1">
-            {formatCalculation(calculation)}
-          </div>
-          
-          {/* Main Input */}
+          <div className="text-text-secondary text-sm h-5 mb-1">{formatCalculation(calculation)}</div>
           <div className="text-4xl font-bold text-text-primary mb-2 break-all text-right">
-            {formatIndianNumber(parseFloat(showResult ? result.toString() : input))}
+            {formatIndianNumber(displayedValue)}
           </div>
-          
-          {/* Formatted Result in Words */}
           <div className="text-text-secondary text-xs mb-3">
-            {numberToIndianWords(parseFloat(showResult ? result.toString() : input))}
+            {numberToIndianWords(displayedValue)}
           </div>
         </div>
-        
-        {/* History Button */}
         <div className="flex justify-between">
-          <Button 
-            variant="text" 
-            onClick={() => setShowHistory(!showHistory)}
-            className="text-sm"
-          >
+          <Button variant="text" onClick={() => setShowHistory(!showHistory)} className="text-sm">
             <Clock size={16} className="mr-1" />
             {showHistory ? 'Hide History' : 'Show History'}
           </Button>
         </div>
       </div>
-      
-      {/* History Panel */}
+
+      {/* History */}
       {showHistory && (
         <div className="bg-background-light p-4 max-h-60 overflow-y-auto custom-scrollbar">
           <div className="flex justify-between mb-3">
@@ -194,16 +166,13 @@ const BasicCalculator: React.FC = () => {
               Clear
             </Button>
           </div>
-          
           {history.length === 0 ? (
             <p className="text-text-secondary text-sm">No calculations yet.</p>
           ) : (
             <div className="space-y-2">
               {history.map((item, index) => (
                 <div key={index} className="border-b border-background pb-2">
-                  <div className="text-xs text-text-secondary">
-                    {formatCalculation(item.calculation)}
-                  </div>
+                  <div className="text-xs text-text-secondary">{formatCalculation(item.calculation)}</div>
                   <div className="text-md font-medium">{formatIndianNumber(item.result)}</div>
                 </div>
               ))}
@@ -211,7 +180,7 @@ const BasicCalculator: React.FC = () => {
           )}
         </div>
       )}
-      
+
       {/* Custom Percentage Buttons */}
       <div className="grid grid-cols-3 gap-1 p-4 bg-background border-t border-background-light">
         {customPercentages.map((percent, index) => (
@@ -235,11 +204,11 @@ const BasicCalculator: React.FC = () => {
             ) : (
               <Button
                 onClick={() => handlePercentage(percent)}
-                className="w-full h-16" 
+                className="w-full h-16"
                 variant="primary"
               >
                 {percent}%
-                <span 
+                <span
                   className="absolute top-1 right-1 text-xs opacity-70 cursor-pointer"
                   onClick={(e) => {
                     e.stopPropagation();
@@ -253,34 +222,29 @@ const BasicCalculator: React.FC = () => {
           </div>
         ))}
       </div>
-      
-      {/* Calculator Keypad */}
+
+      {/* Keypad */}
       <div className="grid grid-cols-4 gap-1 p-1 bg-background">
-        {/* Row 1 */}
         <Button onClick={clear}>C</Button>
         <Button onClick={handleBackspace}><Delete size={20} /></Button>
         <Button onClick={() => handlePercentage(100)}>%</Button>
         <Button onClick={() => appendOperator('÷')} variant="primary">÷</Button>
-        
-        {/* Row 2 */}
+
         <Button onClick={() => appendDigit('7')}>7</Button>
         <Button onClick={() => appendDigit('8')}>8</Button>
         <Button onClick={() => appendDigit('9')}>9</Button>
         <Button onClick={() => appendOperator('×')} variant="primary">×</Button>
-        
-        {/* Row 3 */}
+
         <Button onClick={() => appendDigit('4')}>4</Button>
         <Button onClick={() => appendDigit('5')}>5</Button>
         <Button onClick={() => appendDigit('6')}>6</Button>
         <Button onClick={() => appendOperator('-')} variant="primary">-</Button>
-        
-        {/* Row 4 */}
+
         <Button onClick={() => appendDigit('1')}>1</Button>
         <Button onClick={() => appendDigit('2')}>2</Button>
         <Button onClick={() => appendDigit('3')}>3</Button>
         <Button onClick={() => appendOperator('+')} variant="primary">+</Button>
-        
-        {/* Row 5 */}
+
         <Button onClick={() => appendDigit('0')} variant="wide" className="col-span-2">0</Button>
         <Button onClick={appendDecimal}>.</Button>
         <Button onClick={calculateResult} variant="primary">=</Button>
