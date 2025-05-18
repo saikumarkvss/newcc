@@ -15,17 +15,19 @@ const Button: React.FC<ButtonProps> = ({
   className = '',
 }) => {
   const getButtonClasses = () => {
+    const baseClasses = 'h-16 flex items-center justify-center rounded-button text-text-primary font-medium text-xl transition-colors active:animate-button-press';
+    
     switch (variant) {
       case 'primary':
-        return 'calculator-button calculator-button-orange';
+        return `${baseClasses} bg-primary text-white active:bg-primary-dark`;
       case 'small':
-        return 'calculator-button calculator-button-small';
+        return `${baseClasses} text-base`;
       case 'wide':
-        return 'calculator-button col-span-2';
+        return `${baseClasses} bg-background-light active:bg-background-dark`;
       case 'text':
         return 'text-primary font-medium py-2 px-4 rounded-button bg-transparent hover:bg-background-light';
       default:
-        return 'calculator-button';
+        return `${baseClasses} bg-background-light active:bg-background-dark`;
     }
   };
 
