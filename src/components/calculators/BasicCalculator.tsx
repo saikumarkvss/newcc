@@ -41,24 +41,23 @@ const BasicCalculator: React.FC = () => {
 
   // Add operator to calculation
   const appendOperator = (operator: string) => {
-    const currentValue = showResult ? result : parseFloat(input);
-    
-    if (calculation === '' || showResult) {
-      setCalculation(currentValue + operator);
-      setPreviousResult(currentValue);
-    } else {
-      if (['+', '-', '×', '÷'].includes(calculation.slice(-1))) {
-        setCalculation(calculation.slice(0, -1) + operator);
-      } else {
-        const newResult = calculate(calculation + currentValue);
-        setCalculation(newResult + operator);
-        setPreviousResult(newResult);
-      }
-    }
-    setInput('0');
-    setShowResult(false);
-    setLastOperator(operator);
-  };
+  const currentValue = showResult ? result : parseFloat(input);
+
+  if (showResult) {
+    setCalculation(`${result}${operator}`);
+  } else if (calculation === '') {
+    setCalculation(`${currentValue}${operator}`);
+  } else {
+    const newResult = calculate(calculation + currentValue);
+    setCalculation(`${newResult}${operator}`);
+    setPreviousResult(newResult);
+  }
+
+  setInput('0');
+  setShowResult(false);
+  setLastOperator(operator);
+};
+
 
   // Handle decimal point
   const appendDecimal = () => {
