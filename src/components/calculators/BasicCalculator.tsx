@@ -10,12 +10,13 @@ const BasicCalculator: React.FC = () => {
   const [result, setResult] = useState<number>(0);
   const [showResult, setShowResult] = useState<boolean>(false);
   const [showHistory, setShowHistory] = useState<boolean>(false);
-  const [history, setHistory] = useState<Array<{ calculation: string, result: number }>>([]);
+  const [history, setHistory] = useState<Array<{calculation: string, result: number}>>([]);
   const [customPercentages, setCustomPercentages] = useState<number[]>([2, 1.8, 1.7]);
   const [editingPercentIndex, setEditingPercentIndex] = useState<number | null>(null);
   const [percentValue, setPercentValue] = useState<string>('');
   const [lastOperator, setLastOperator] = useState<string>('');
   const [previousResult, setPreviousResult] = useState<number>(0);
+  const [fullExpression, setFullExpression] = useState<string>('');
 
   const clear = () => {
     setInput('0');
@@ -24,13 +25,16 @@ const BasicCalculator: React.FC = () => {
     setPreviousResult(0);
     setShowResult(false);
     setLastOperator('');
+    setFullExpression('');
   };
 
   const appendDigit = (digit: string) => {
     if (showResult) {
+      setPreviousResult(result);
       setInput(digit);
       setCalculation('');
       setShowResult(false);
+      setFullExpression('');
     } else {
       setInput(input === '0' ? digit : input + digit);
     }
@@ -38,19 +42,16 @@ const BasicCalculator: React.FC = () => {
 
   const appendOperator = (operator: string) => {
     const currentValue = parseFloat(input);
-    let newCalc = calculation;
 
     if (showResult) {
-      newCalc = `${result}${operator}`;
-    } else if (!calculation) {
-      newCalc = `${currentValue}${operator}`;
+      setFullExpression(`${result}${operator}`);
+      setCalculation(`${result}${operator}`);
     } else {
-      const newResult = calculate(calculation + currentValue);
-      newCalc = `${newResult}${operator}`;
-      setPreviousResult(newResult);
+      const newExpression = fullExpression + input + operator;
+      setFullExpression(newExpression);
+      setCalculation(newExpression);
     }
 
-    setCalculation(newCalc);
     setInput('0');
     setShowResult(false);
     setLastOperator(operator);
@@ -67,48 +68,51 @@ const BasicCalculator: React.FC = () => {
   };
 
   const handleBackspace = () => {
-    setInput(input.length > 1 ? input.slice(0, -1) : '0');
+    if (input.length > 1) {
+      setInput(input.slice(0, -1));
+    } else {
+      setInput('0');
+    }
   };
 
   const handlePercentage = (percentage: number) => {
     const currentValue = parseFloat(input);
-    let finalResult = 0;
+    let result;
 
     if (lastOperator === '+') {
-      finalResult = previousResult + calculatePercentage(previousResult, percentage);
+      result = previousResult + calculatePercentage(previousResult, percentage);
     } else if (lastOperator === '-') {
-      finalResult = previousResult - calculatePercentage(previousResult, percentage);
+      result = previousResult - calculatePercentage(previousResult, percentage);
     } else {
-      finalResult = calculatePercentage(currentValue, percentage);
+      result = calculatePercentage(currentValue, percentage);
     }
 
-    const calcStr =
-      lastOperator === '+' || lastOperator === '-'
-        ? `${previousResult} ${lastOperator} ${percentage}%`
-        : `${currentValue} × ${percentage}%`;
-
-    setResult(finalResult);
-    setInput(finalResult.toString());
-    setCalculation(calcStr + ' =');
-    setPreviousResult(finalResult);
+    setResult(result);
+    setInput(result.toString());
+    setPreviousResult(result);
     setShowResult(true);
-    setLastOperator('');
 
-    setHistory(prev => [{ calculation: calcStr + ' =', result: finalResult }, ...prev]);
+    const calcStr = `${previousResult}${lastOperator}${percentage}%`;
+    setCalculation(calcStr);
+    setFullExpression(calcStr);
+    setHistory(prev => [{ calculation: calcStr, result }, ...prev]);
+    setLastOperator('');
   };
 
   const calculateResult = () => {
     try {
-      const expression = (calculation + input).replace(/×/g, '*').replace(/÷/g, '/');
-      const calcResult = calculate(expression);
+      const fullCalculation = fullExpression + input;
+      const expressionToEvaluate = fullCalculation.replace(/×/g, '*').replace(/÷/g, '/');
+      const calculatedResult = calculate(expressionToEvaluate);
 
-      setResult(calcResult);
-      setPreviousResult(calcResult);
-      setCalculation(calculation + input + ' =');
-      setInput(calcResult.toString());
+      setResult(calculatedResult);
+      setPreviousResult(calculatedResult);
+      setCalculation(fullCalculation + ' =');
+      setFullExpression(fullCalculation);
+      setInput(calculatedResult.toString());
       setShowResult(true);
 
-      setHistory(prev => [{ calculation: calculation + input + ' =', result: calcResult }, ...prev]);
+      setHistory(prev => [{ calculation: fullCalculation + ' =', result: calculatedResult }, ...prev]);
     } catch (error) {
       setInput('Error');
     }
@@ -123,40 +127,44 @@ const BasicCalculator: React.FC = () => {
     if (editingPercentIndex !== null) {
       const newValue = parseFloat(percentValue);
       if (!isNaN(newValue)) {
-        const updated = [...customPercentages];
-        updated[editingPercentIndex] = newValue;
-        setCustomPercentages(updated);
+        const updatedPercentages = [...customPercentages];
+        updatedPercentages[editingPercentIndex] = newValue;
+        setCustomPercentages(updatedPercentages);
       }
       setEditingPercentIndex(null);
     }
   };
 
-  const clearHistory = () => setHistory([]);
-
-  const displayedValue = showResult ? result : parseFloat(input);
+  const clearHistory = () => {
+    setHistory([]);
+  };
 
   return (
     <div className="rounded-xl overflow-hidden shadow-lg bg-background animate-fade-in">
-      {/* Calculator Screen */}
-      <div className="calculator-screen p-4">
+      <div className="calculator-screen">
         <div className="flex flex-col items-end w-full">
-          <div className="text-text-secondary text-sm h-5 mb-1">{formatCalculation(calculation)}</div>
-          <div className="text-4xl font-bold text-text-primary mb-2 break-all text-right">
-            {formatIndianNumber(displayedValue)}
+          <div className="text-text-secondary text-sm h-5 mb-1 break-all text-right">
+            {formatCalculation(calculation)}
+          </div>
+          <div className="text-4xl font-bold text-text-primary mb-2 break-all text-right max-w-full overflow-x-auto">
+            {formatIndianNumber(parseFloat(showResult ? result.toString() : input))}
           </div>
           <div className="text-text-secondary text-xs mb-3">
-            {numberToIndianWords(displayedValue)}
+            {numberToIndianWords(parseFloat(showResult ? result.toString() : input))}
           </div>
         </div>
         <div className="flex justify-between">
-          <Button variant="text" onClick={() => setShowHistory(!showHistory)} className="text-sm">
+          <Button 
+            variant="text" 
+            onClick={() => setShowHistory(!showHistory)}
+            className="text-sm"
+          >
             <Clock size={16} className="mr-1" />
             {showHistory ? 'Hide History' : 'Show History'}
           </Button>
         </div>
       </div>
 
-      {/* History */}
       {showHistory && (
         <div className="bg-background-light p-4 max-h-60 overflow-y-auto custom-scrollbar">
           <div className="flex justify-between mb-3">
@@ -172,7 +180,9 @@ const BasicCalculator: React.FC = () => {
             <div className="space-y-2">
               {history.map((item, index) => (
                 <div key={index} className="border-b border-background pb-2">
-                  <div className="text-xs text-text-secondary">{formatCalculation(item.calculation)}</div>
+                  <div className="text-xs text-text-secondary">
+                    {formatCalculation(item.calculation)}
+                  </div>
                   <div className="text-md font-medium">{formatIndianNumber(item.result)}</div>
                 </div>
               ))}
@@ -181,7 +191,6 @@ const BasicCalculator: React.FC = () => {
         </div>
       )}
 
-      {/* Custom Percentage Buttons */}
       <div className="grid grid-cols-3 gap-1 p-4 bg-background border-t border-background-light">
         {customPercentages.map((percent, index) => (
           <div key={index} className="relative">
@@ -204,11 +213,11 @@ const BasicCalculator: React.FC = () => {
             ) : (
               <Button
                 onClick={() => handlePercentage(percent)}
-                className="w-full h-16"
+                className="w-full h-16" 
                 variant="primary"
               >
                 {percent}%
-                <span
+                <span 
                   className="absolute top-1 right-1 text-xs opacity-70 cursor-pointer"
                   onClick={(e) => {
                     e.stopPropagation();
@@ -223,7 +232,6 @@ const BasicCalculator: React.FC = () => {
         ))}
       </div>
 
-      {/* Keypad */}
       <div className="grid grid-cols-4 gap-1 p-1 bg-background">
         <Button onClick={clear}>C</Button>
         <Button onClick={handleBackspace}><Delete size={20} /></Button>
