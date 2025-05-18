@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, Trash2 } from 'lucide-react';
+import { Clock, Trash2, Delete } from 'lucide-react';
 import Button from '../ui/Button';
 import { calculate, calculatePercentage } from '../../utils/calculations';
 import { formatIndianNumber, numberToIndianWords, formatCalculation } from '../../utils/formatters';
@@ -15,12 +15,14 @@ const BasicCalculator: React.FC = () => {
   const [editingPercentIndex, setEditingPercentIndex] = useState<number | null>(null);
   const [percentValue, setPercentValue] = useState<string>('');
   const [lastOperator, setLastOperator] = useState<string>('');
+  const [previousResult, setPreviousResult] = useState<number>(0);
 
   // Reset calculator state
   const clear = () => {
     setInput('0');
     setCalculation('');
     setResult(0);
+    setPreviousResult(0);
     setShowResult(false);
     setLastOperator('');
   };
@@ -28,6 +30,7 @@ const BasicCalculator: React.FC = () => {
   // Add digit to input
   const appendDigit = (digit: string) => {
     if (showResult) {
+      setPreviousResult(parseFloat(input));
       setInput(digit);
       setCalculation('');
       setShowResult(false);
@@ -38,14 +41,18 @@ const BasicCalculator: React.FC = () => {
 
   // Add operator to calculation
   const appendOperator = (operator: string) => {
+    const currentValue = showResult ? result : parseFloat(input);
+    
     if (calculation === '' || showResult) {
-      setCalculation(input + operator);
+      setCalculation(currentValue + operator);
+      setPreviousResult(currentValue);
     } else {
-      // Handle case when user types multiple operators
       if (['+', '-', '×', '÷'].includes(calculation.slice(-1))) {
         setCalculation(calculation.slice(0, -1) + operator);
       } else {
-        setCalculation(calculation + input + operator);
+        const newResult = calculate(calculation + currentValue);
+        setCalculation(newResult + operator);
+        setPreviousResult(newResult);
       }
     }
     setInput('0');
@@ -65,30 +72,36 @@ const BasicCalculator: React.FC = () => {
     setInput(input.startsWith('-') ? input.slice(1) : '-' + input);
   };
 
+  // Handle backspace
+  const handleBackspace = () => {
+    if (input.length > 1) {
+      setInput(input.slice(0, -1));
+    } else {
+      setInput('0');
+    }
+  };
+
   // Handle percentage button
   const handlePercentage = (percentage: number) => {
     const currentValue = parseFloat(input);
     let result;
     
     if (lastOperator === '+') {
-      // Add percentage to previous value
-      result = calculate(calculation.slice(0, -1)) + calculatePercentage(calculate(calculation.slice(0, -1)), percentage);
-      setCalculation(`${calculation.slice(0, -1)} + ${percentage}% =`);
+      result = previousResult + calculatePercentage(previousResult, percentage);
+      setCalculation(`${previousResult} + ${percentage}% =`);
     } else if (lastOperator === '-') {
-      // Subtract percentage from previous value
-      result = calculate(calculation.slice(0, -1)) - calculatePercentage(calculate(calculation.slice(0, -1)), percentage);
-      setCalculation(`${calculation.slice(0, -1)} - ${percentage}% =`);
+      result = previousResult - calculatePercentage(previousResult, percentage);
+      setCalculation(`${previousResult} - ${percentage}% =`);
     } else {
-      // Just calculate percentage of current input
       result = calculatePercentage(currentValue, percentage);
       setCalculation(`${currentValue} × ${percentage}% =`);
     }
     
     setResult(result);
     setInput(result.toString());
+    setPreviousResult(result);
     setShowResult(true);
     
-    // Add to history
     setHistory(prev => [{ calculation: calculation + ` ${percentage}% =`, result }, ...prev]);
     setLastOperator('');
   };
@@ -99,16 +112,14 @@ const BasicCalculator: React.FC = () => {
       const fullCalculation = calculation + input;
       const expressionToEvaluate = fullCalculation.replace(/×/g, '*').replace(/÷/g, '/');
       
-      // Evaluate expression
       const calculatedResult = calculate(expressionToEvaluate);
       
-      // Update state
       setResult(calculatedResult);
+      setPreviousResult(calculatedResult);
       setCalculation(fullCalculation + ' =');
       setInput(calculatedResult.toString());
       setShowResult(true);
       
-      // Add to history
       setHistory(prev => [{ calculation: fullCalculation + ' =', result: calculatedResult }, ...prev]);
     } catch (error) {
       setInput('Error');
@@ -150,12 +161,12 @@ const BasicCalculator: React.FC = () => {
           
           {/* Main Input */}
           <div className="text-4xl font-bold text-text-primary mb-2 break-all text-right">
-            {showResult ? formatIndianNumber(result) : input}
+            {formatIndianNumber(parseFloat(showResult ? result.toString() : input))}
           </div>
           
           {/* Formatted Result in Words */}
           <div className="text-text-secondary text-xs mb-3">
-            {showResult && numberToIndianWords(result)}
+            {numberToIndianWords(parseFloat(showResult ? result.toString() : input))}
           </div>
         </div>
         
@@ -201,7 +212,7 @@ const BasicCalculator: React.FC = () => {
       )}
       
       {/* Custom Percentage Buttons */}
-      <div className="grid grid-cols-3 gap-3 p-4 bg-background border-t border-background-light">
+      <div className="grid grid-cols-3 gap-1 p-4 bg-background border-t border-background-light">
         {customPercentages.map((percent, index) => (
           <div key={index} className="relative">
             {editingPercentIndex === index ? (
@@ -223,7 +234,7 @@ const BasicCalculator: React.FC = () => {
             ) : (
               <Button
                 onClick={() => handlePercentage(percent)}
-                className="w-full" 
+                className="w-full h-16" 
                 variant="primary"
               >
                 {percent}%
@@ -243,10 +254,10 @@ const BasicCalculator: React.FC = () => {
       </div>
       
       {/* Calculator Keypad */}
-      <div className="calculator-keypad">
+      <div className="grid grid-cols-4 gap-1 p-1 bg-background">
         {/* Row 1 */}
         <Button onClick={clear}>C</Button>
-        <Button onClick={toggleSign}>+/-</Button>
+        <Button onClick={handleBackspace}><Delete size={20} /></Button>
         <Button onClick={() => handlePercentage(100)}>%</Button>
         <Button onClick={() => appendOperator('÷')} variant="primary">÷</Button>
         
@@ -269,7 +280,7 @@ const BasicCalculator: React.FC = () => {
         <Button onClick={() => appendOperator('+')} variant="primary">+</Button>
         
         {/* Row 5 */}
-        <Button onClick={() => appendDigit('0')} variant="wide">0</Button>
+        <Button onClick={() => appendDigit('0')} variant="wide" className="col-span-2">0</Button>
         <Button onClick={appendDecimal}>.</Button>
         <Button onClick={calculateResult} variant="primary">=</Button>
       </div>
