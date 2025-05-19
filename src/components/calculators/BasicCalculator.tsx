@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Clock, Trash2, Delete } from 'lucide-react';
 import Button from '../ui/Button';
-import { calculate, calculatePercentage } from '../../utils/calculations';
+import { calculate, calculatePercentageOperation } from '../../utils/calculations';
 import { formatIndianNumber, numberToIndianWords, formatCalculation } from '../../utils/formatters';
 
 const BasicCalculator: React.FC = () => {
@@ -25,7 +25,7 @@ const BasicCalculator: React.FC = () => {
   const appendDigit = (digit: string) => {
     if (showResult) {
       setInput(digit);
-      setCalculation('');
+      setCalculation(result + '');
       setShowResult(false);
     } else {
       setInput(input === '0' ? digit : input + digit);
@@ -35,25 +35,9 @@ const BasicCalculator: React.FC = () => {
   const appendOperator = (operator: string) => {
     if (input === 'Error') return;
 
-    let newCalc = calculation;
+    const currentValue = showResult ? result : parseFloat(input);
+    const newCalc = calculation + (showResult ? '' : input) + ' ' + operator + ' ';
     
-    if (showResult) {
-      // Continue calculation with previous result
-      newCalc = `${result}${operator}`;
-    } else if (calculation.includes('=')) {
-      // Start new calculation after equals
-      newCalc = `${input}${operator}`;
-    } else if (!calculation) {
-      // First operator press
-      newCalc = `${input}${operator}`;
-    } else {
-      // Calculate intermediate result
-      const currentValue = parseFloat(input);
-      const calcResult = calculate(calculation + currentValue);
-      newCalc = `${calcResult}${operator}`;
-      setResult(calcResult);
-    }
-
     setCalculation(newCalc);
     setInput('0');
     setShowResult(false);
@@ -70,68 +54,43 @@ const BasicCalculator: React.FC = () => {
   };
 
   const handleBackspace = () => {
+    if (showResult) return;
     setInput(input.length > 1 ? input.slice(0, -1) : '0');
   };
 
   const handlePercentage = (percentage: number) => {
     if (isNaN(percentage) || input === 'Error') return;
 
-    const currentValue = parseFloat(input);
-    if (isNaN(currentValue)) return;
+    const expr = calculation + input;
+    const result = calculatePercentageOperation(expr, percentage);
+    const calcStr = `${expr} ${percentage}%`;
 
-    let resultValue: number;
-    let calcStr: string;
-
-    if (calculation.includes('+')) {
-      // For addition: 1000 + 2% = 1000 + (1000 * 0.02) = 1020
-      const baseValue = calculate(calculation.replace(/\+.*/, ''));
-      const percentageAmount = calculatePercentage(baseValue, percentage);
-      resultValue = baseValue + percentageAmount;
-      calcStr = `${baseValue} + ${percentage}%`;
-    } else if (calculation.includes('-')) {
-      // For subtraction: 1000 - 2% = 1000 - (1000 * 0.02) = 980
-      const baseValue = calculate(calculation.replace(/-.*/, ''));
-      const percentageAmount = calculatePercentage(baseValue, percentage);
-      resultValue = baseValue - percentageAmount;
-      calcStr = `${baseValue} - ${percentage}%`;
-    } else {
-      // For standalone percentage: 1000 * 2% = 20
-      resultValue = calculatePercentage(currentValue, percentage);
-      calcStr = `${currentValue} × ${percentage}%`;
-    }
-
-    setResult(resultValue);
-    setInput(resultValue.toString());
+    setResult(result);
+    setInput(result.toString());
     setCalculation(calcStr + ' =');
     setShowResult(true);
-
-    setHistory(prev => [{ calculation: calcStr + ' =', result: resultValue }, ...prev]);
+    setHistory(prev => [{ calculation: calcStr + ' =', result }, ...prev]);
   };
 
   const calculateResult = () => {
     try {
-      if (!calculation) {
-        // If no calculation, just show the input as result
-        setResult(parseFloat(input));
-        setInput(input);
-        setShowResult(true);
+      if (!calculation && input === '0') {
         return;
       }
 
-      if (calculation.includes('=')) {
-        // If already calculated, do nothing
+      const expr = calculation + input;
+      if (expr.endsWith('=')) {
         return;
       }
 
-      const expression = calculation + input;
-      const calcResult = calculate(expression);
+      const calcResult = calculate(expr);
+      const fullCalculation = expr + ' =';
 
       setResult(calcResult);
-      setCalculation(expression + ' =');
+      setCalculation(fullCalculation);
       setInput(calcResult.toString());
       setShowResult(true);
-
-      setHistory(prev => [{ calculation: expression + ' =', result: calcResult }, ...prev]);
+      setHistory(prev => [{ calculation: fullCalculation, result: calcResult }, ...prev]);
     } catch (error) {
       setInput('Error');
       setCalculation('');
@@ -158,20 +117,19 @@ const BasicCalculator: React.FC = () => {
 
   const clearHistory = () => setHistory([]);
 
-  const displayedValue = showResult ? result : parseFloat(input);
+  const displayedValue = showResult ? result : parseFloat(input) || 0;
   const displayText = formatIndianNumber(displayedValue);
-  const fullDisplayText = displayText.startsWith(',') ? '0' + displayText : displayText;
 
   return (
     <div className="rounded-xl overflow-hidden shadow-lg bg-background animate-fade-in">
       {/* Calculator Screen */}
       <div className="calculator-screen p-4">
         <div className="flex flex-col items-end w-full">
-          <div className="text-text-secondary text-sm h-5 mb-1 min-h-[20px]">
+          <div className="text-text-secondary text-sm h-5 mb-1 min-h-[20px] overflow-x-auto whitespace-nowrap custom-scrollbar w-full text-right">
             {formatCalculation(calculation)}
           </div>
           <div className="text-4xl font-bold text-text-primary mb-2 break-all text-right">
-            {fullDisplayText}
+            {displayText}
           </div>
           <div className="text-text-secondary text-xs mb-3 min-h-[16px]">
             {numberToIndianWords(displayedValue)}
@@ -201,7 +159,9 @@ const BasicCalculator: React.FC = () => {
             <div className="space-y-2">
               {history.map((item, index) => (
                 <div key={index} className="border-b border-background pb-2">
-                  <div className="text-xs text-text-secondary">{formatCalculation(item.calculation)}</div>
+                  <div className="text-xs text-text-secondary overflow-x-auto whitespace-nowrap custom-scrollbar">
+                    {formatCalculation(item.calculation)}
+                  </div>
                   <div className="text-md font-medium">{formatIndianNumber(item.result)}</div>
                 </div>
               ))}
@@ -211,7 +171,7 @@ const BasicCalculator: React.FC = () => {
       )}
 
       {/* Custom Percentage Buttons */}
-      <div className="grid grid-cols-3 gap-1 p-4 bg-background border-t border-background-light">
+      <div className="grid grid-cols-3 gap-[1px] p-1 bg-background">
         {customPercentages.map((percent, index) => (
           <div key={index} className="relative">
             {editingPercentIndex === index ? (
@@ -253,7 +213,7 @@ const BasicCalculator: React.FC = () => {
       </div>
 
       {/* Keypad */}
-      <div className="grid grid-cols-4 gap-1 p-1 bg-background">
+      <div className="grid grid-cols-4 gap-[1px] p-1 bg-background">
         <Button onClick={clear}>C</Button>
         <Button onClick={handleBackspace}><Delete size={20} /></Button>
         <Button onClick={() => handlePercentage(100)}>%</Button>

@@ -1,5 +1,6 @@
 // Format number to Indian format (lakhs, crores)
 export const formatIndianNumber = (num: number): string => {
+  if (isNaN(num)) return '0';
   const numStr = Math.abs(num).toString();
   let result = '';
   
@@ -8,14 +9,17 @@ export const formatIndianNumber = (num: number): string => {
     result = ',' + numStr.substring(numStr.length - 3);
     let remaining = numStr.substring(0, numStr.length - 3);
     
-    // Add comma after every 2 digits
+    // Add comma after every 2 digits from right to left
     while (remaining.length > 0) {
-      result = (remaining.length > 2 ? ',' : '') + 
-              remaining.substring(Math.max(0, remaining.length - 2)) + result;
+      result = (remaining.length > 0 ? ',' : '') + 
+               remaining.substring(Math.max(0, remaining.length - 2)) + result;
       remaining = remaining.substring(0, Math.max(0, remaining.length - 2));
     }
     
-    result = result.substring(1); // Remove first comma
+    // Remove first comma if present
+    if (result.startsWith(',')) {
+      result = result.substring(1);
+    }
   } else {
     result = numStr;
   }
@@ -25,13 +29,14 @@ export const formatIndianNumber = (num: number): string => {
 
 // Convert number to words in Indian system
 export const numberToIndianWords = (num: number): string => {
+  if (isNaN(num)) return 'Zero';
   if (num === 0) return 'Zero';
   
   const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine',
                 'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen',
                 'Seventeen', 'Eighteen', 'Nineteen'];
   const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
-  const scales = ['', 'Thousand', 'Lakh', 'Crore'];
+  const scales = ['', 'Thousand', 'Lakh', 'Crore', 'Arab', 'Kharab', 'Neel', 'Padma', 'Shankh'];
   
   const convertGroup = (n: number): string => {
     let str = '';
@@ -54,6 +59,7 @@ export const numberToIndianWords = (num: number): string => {
   
   let words = '';
   let scaleIndex = 0;
+  let firstGroup = true;
   
   while (absNum > 0) {
     let chunk: number;
@@ -63,13 +69,18 @@ export const numberToIndianWords = (num: number): string => {
       chunk = absNum % 1000;
       absNum = Math.floor(absNum / 1000);
     } else {
-      // Get 2 digits for thousands, lakhs, crores
+      // Get 2 digits for thousands and above
       chunk = absNum % 100;
       absNum = Math.floor(absNum / 100);
     }
     
     if (chunk !== 0) {
-      words = convertGroup(chunk) + (scales[scaleIndex] ? ' ' + scales[scaleIndex] + ' ' : '') + words;
+      let groupWords = convertGroup(chunk);
+      if (!firstGroup && groupWords) {
+        groupWords += ' ' + scales[scaleIndex];
+      }
+      words = groupWords + (words ? ' ' : '') + words;
+      firstGroup = false;
     }
     
     scaleIndex++;
@@ -82,5 +93,7 @@ export const numberToIndianWords = (num: number): string => {
 export const formatCalculation = (calculation: string): string => {
   return calculation
     .replace(/\*/g, '×')
-    .replace(/\//g, '÷');
+    .replace(/\//g, '÷')
+    .replace(/\s+/g, ' ')
+    .trim();
 };

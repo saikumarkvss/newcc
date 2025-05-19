@@ -1,7 +1,12 @@
 // Basic calculator operations
 export const calculate = (expression: string): number => {
+  if (!expression) return 0;
+  
+  // Remove trailing operators
+  const cleanExpression = expression.replace(/[+\-×÷*\/]$/, '');
+  
   // Replace visual operators with JS operators
-  const sanitizedExpression = expression
+  const sanitizedExpression = cleanExpression
     .replace(/×/g, '*')
     .replace(/÷/g, '/');
   
@@ -18,6 +23,39 @@ export const calculate = (expression: string): number => {
 // Calculate percentage value
 export const calculatePercentage = (base: number, percentage: number): number => {
   return (base * percentage) / 100;
+};
+
+// Calculate percentage operation
+export const calculatePercentageOperation = (expression: string, percentage: number): number => {
+  // Find the last number in the expression
+  const matches = expression.match(/[-]?\d+\.?\d*$/);
+  if (!matches) return 0;
+  
+  const lastNumber = parseFloat(matches[0]);
+  const baseExpression = expression.slice(0, -matches[0].length).trim();
+  
+  if (!baseExpression) {
+    // If there's no operation, just calculate percentage of the number
+    return (lastNumber * percentage) / 100;
+  }
+  
+  const operator = baseExpression.slice(-1);
+  const baseNumber = calculate(baseExpression.slice(0, -1));
+  
+  switch (operator) {
+    case '+':
+      return baseNumber + ((baseNumber * percentage) / 100);
+    case '-':
+      return baseNumber - ((baseNumber * percentage) / 100);
+    case '×':
+    case '*':
+      return baseNumber * (percentage / 100);
+    case '÷':
+    case '/':
+      return baseNumber / (percentage / 100);
+    default:
+      return (lastNumber * percentage) / 100;
+  }
 };
 
 // Calculate percentage difference between two numbers
