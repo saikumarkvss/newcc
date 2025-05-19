@@ -27,7 +27,7 @@ export const formatIndianNumber = (num: number): string => {
   return num < 0 ? '-' + result : result;
 };
 
-// Convert number to words in Indian system
+// Convert number to words in Indian system (simplified for clarity)
 export const numberToIndianWords = (num: number): string => {
   if (isNaN(num)) return 'Zero';
   if (num === 0) return 'Zero';
@@ -36,54 +36,53 @@ export const numberToIndianWords = (num: number): string => {
                 'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen',
                 'Seventeen', 'Eighteen', 'Nineteen'];
   const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
-  const scales = ['', 'Thousand', 'Lakh', 'Crore', 'Arab', 'Kharab', 'Neel', 'Padma', 'Shankh'];
   
-  const convertGroup = (n: number): string => {
-    let str = '';
-    
-    if (n < 20) {
-      str = ones[n];
-    } else if (n < 100) {
-      str = tens[Math.floor(n / 10)] + (n % 10 !== 0 ? ' ' + ones[n % 10] : '');
-    } else {
-      str = ones[Math.floor(n / 100)] + ' Hundred' + (n % 100 !== 0 ? ' ' + convertGroup(n % 100) : '');
-    }
-    
-    return str;
+  const convertLessThanThousand = (n: number): string => {
+    if (n === 0) return '';
+    if (n < 20) return ones[n];
+    if (n < 100) return tens[Math.floor(n / 10)] + (n % 10 !== 0 ? ' ' + ones[n % 10] : '');
+    return ones[Math.floor(n / 100)] + ' Hundred' + (n % 100 !== 0 ? ' ' + convertLessThanThousand(n % 100) : '');
   };
-  
+
   const isNegative = num < 0;
   let absNum = Math.abs(num);
   
+  // Handle zero
   if (absNum === 0) return 'Zero';
   
-  let words = '';
-  let scaleIndex = 0;
-  let firstGroup = true;
+  // Break into 2-digit groups for Indian numbering system
+  const crore = Math.floor(absNum / 10000000);
+  const lakh = Math.floor((absNum % 10000000) / 100000);
+  const thousand = Math.floor((absNum % 100000) / 1000);
+  const remainder = absNum % 1000;
   
-  while (absNum > 0) {
-    let chunk: number;
-    
-    if (scaleIndex === 0) {
-      // Get last 3 digits for ones, tens, hundreds
-      chunk = absNum % 1000;
-      absNum = Math.floor(absNum / 1000);
-    } else {
-      // Get 2 digits for thousands and above
-      chunk = absNum % 100;
-      absNum = Math.floor(absNum / 100);
-    }
-    
-    if (chunk !== 0) {
-      let groupWords = convertGroup(chunk);
-      if (!firstGroup && groupWords) {
-        groupWords += ' ' + scales[scaleIndex];
+  let words = '';
+  
+  if (crore > 0) {
+    if (crore > 99) {
+      words += convertLessThanThousand(Math.floor(crore / 100)) + ' Hundred';
+      if (crore % 100 > 0) {
+        words += ' ' + convertLessThanThousand(crore % 100);
       }
-      words = groupWords + (words ? ' ' : '') + words;
-      firstGroup = false;
+      words += ' Crore';
+    } else {
+      words += convertLessThanThousand(crore) + ' Crore';
     }
-    
-    scaleIndex++;
+  }
+  
+  if (lakh > 0) {
+    if (words !== '') words += ' ';
+    words += convertLessThanThousand(lakh) + ' Lakh';
+  }
+  
+  if (thousand > 0) {
+    if (words !== '') words += ' ';
+    words += convertLessThanThousand(thousand) + ' Thousand';
+  }
+  
+  if (remainder > 0) {
+    if (words !== '') words += ' ';
+    words += convertLessThanThousand(remainder);
   }
   
   return (isNegative ? 'Negative ' : '') + words.trim();
