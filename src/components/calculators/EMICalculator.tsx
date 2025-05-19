@@ -4,6 +4,7 @@ import Input from '../ui/Input';
 import Button from '../ui/Button';
 import { calculateEMI } from '../../utils/calculations';
 import { formatIndianNumber } from '../../utils/formatters';
+import Logo from '../ui/Logo';
 
 interface EMIDetails {
   emi: number;
@@ -32,58 +33,8 @@ const EMICalculator: React.FC = () => {
     const tenure = parseInt(loanTenure || '0', 10);
     
     if (amount > 0 && rate > 0 && tenure > 0) {
-      const monthlyRate = interestType === 'reducing' ? rate / (12 * 100) : rate / 100;
-      let emi: number;
-      let totalInterest: number;
-      let schedule: EMIDetails['schedule'] = [];
-
-      if (interestType === 'reducing') {
-        // Reducing balance method
-        emi = (amount * monthlyRate * Math.pow(1 + monthlyRate, tenure)) / 
-              (Math.pow(1 + monthlyRate, tenure) - 1);
-        
-        let remainingBalance = amount;
-        for (let month = 1; month <= tenure; month++) {
-          const monthlyInterest = remainingBalance * monthlyRate;
-          const monthlyPrincipal = emi - monthlyInterest;
-          remainingBalance -= monthlyPrincipal;
-          
-          schedule.push({
-            month,
-            emi,
-            principal: monthlyPrincipal,
-            interest: monthlyInterest,
-            balance: Math.max(0, remainingBalance)
-          });
-        }
-      } else {
-        // Flat rate method
-        const totalInterestAmount = amount * (rate / 100) * (tenure / 12);
-        emi = (amount + totalInterestAmount) / tenure;
-        const monthlyPrincipal = amount / tenure;
-        const monthlyInterest = totalInterestAmount / tenure;
-        
-        let remainingBalance = amount;
-        for (let month = 1; month <= tenure; month++) {
-          remainingBalance -= monthlyPrincipal;
-          schedule.push({
-            month,
-            emi,
-            principal: monthlyPrincipal,
-            interest: monthlyInterest,
-            balance: Math.max(0, remainingBalance)
-          });
-        }
-      }
-
-      totalInterest = (emi * tenure) - amount;
-      
-      setEmiResult({
-        emi,
-        totalInterest,
-        totalPayment: emi * tenure,
-        schedule
-      });
+      const result = calculateEMI(amount, rate, tenure, interestType);
+      setEmiResult(result);
     } else {
       setEmiResult(null);
     }
@@ -96,29 +47,65 @@ const EMICalculator: React.FC = () => {
   const downloadPDF = () => {
     if (!emiResult) return;
 
-    const content = `
-CC Calculator - Loan Repayment Schedule
+    // Create PDF content
+    const pdfContent = `
+    <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; color: white; background-color: black; }
+          .header { background-color: #ff6a00; padding: 20px; display: flex; align-items: center; }
+          .logo { width: 50px; height: 50px; margin-right: 20px; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+          th, td { padding: 10px; border: 1px solid #333; text-align: right; }
+          th { background-color: #ff6a00; }
+          .summary { margin: 20px 0; padding: 20px; background-color: #121212; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <img src="${Logo}" class="logo" />
+          <h1>CC Calculator - Loan Repayment Schedule</h1>
+        </div>
+        
+        <div class="summary">
+          <h2>Loan Details</h2>
+          <p>Loan Amount: ₹${formatIndianNumber(parseFloat(loanAmount))}</p>
+          <p>Interest Rate: ${interestRate}% (${interestType})</p>
+          <p>Loan Tenure: ${loanTenure} months</p>
+          <p>Monthly EMI: ₹${formatIndianNumber(Math.round(emiResult.emi))}</p>
+        </div>
 
-Loan Amount: ₹${formatIndianNumber(parseFloat(loanAmount))}
-Interest Rate: ${interestRate}% (${interestType})
-Loan Tenure: ${loanTenure} months
-Monthly EMI: ₹${formatIndianNumber(Math.round(emiResult.emi))}
+        <table>
+          <thead>
+            <tr>
+              <th>Month</th>
+              <th>EMI (₹)</th>
+              <th>Principal (₹)</th>
+              <th>Interest (₹)</th>
+              <th>Balance (₹)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${emiResult.schedule.map(row => `
+              <tr>
+                <td>${row.month}</td>
+                <td>${formatIndianNumber(Math.round(row.emi))}</td>
+                <td>${formatIndianNumber(Math.round(row.principal))}</td>
+                <td>${formatIndianNumber(Math.round(row.interest))}</td>
+                <td>${formatIndianNumber(Math.round(row.balance))}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </body>
+    </html>
+    `;
 
-Repayment Schedule:
-${emiResult.schedule.map(row => `
-Month ${row.month}
-EMI: ₹${formatIndianNumber(Math.round(row.emi))}
-Principal: ₹${formatIndianNumber(Math.round(row.principal))}
-Interest: ₹${formatIndianNumber(Math.round(row.interest))}
-Balance: ₹${formatIndianNumber(Math.round(row.balance))}
-`).join('\n')}
-`;
-
-    const blob = new Blob([content], { type: 'text/plain' });
+    const blob = new Blob([pdfContent], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'loan-schedule.txt';
+    a.download = 'loan-schedule.html';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -266,7 +253,7 @@ Balance: ₹${formatIndianNumber(Math.round(row.balance))}
                   className="flex items-center gap-2 text-primary hover:text-primary-light"
                 >
                   <Download size={18} />
-                  Download
+                  Download PDF
                 </button>
               </div>
               
@@ -302,4 +289,4 @@ Balance: ₹${formatIndianNumber(Math.round(row.balance))}
   );
 };
 
-export default EMICalculator;
+export default EMICa
