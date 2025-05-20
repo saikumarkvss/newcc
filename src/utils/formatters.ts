@@ -1,13 +1,18 @@
 // Format number to Indian format (lakhs, crores)
 export const formatIndianNumber = (num: number): string => {
   if (isNaN(num)) return '0';
-  const numStr = Math.abs(num).toString();
+  
+  // Handle decimal numbers
+  const parts = Math.abs(num).toString().split('.');
+  const integerPart = parts[0];
+  const decimalPart = parts[1] || '';
+  
   let result = '';
   
-  if (numStr.length > 3) {
+  if (integerPart.length > 3) {
     // Add comma after first 3 digits
-    result = ',' + numStr.substring(numStr.length - 3);
-    let remaining = numStr.substring(0, numStr.length - 3);
+    result = ',' + integerPart.substring(integerPart.length - 3);
+    let remaining = integerPart.substring(0, integerPart.length - 3);
     
     // Add comma after every 2 digits from right to left
     while (remaining.length > 0) {
@@ -21,13 +26,18 @@ export const formatIndianNumber = (num: number): string => {
       result = result.substring(1);
     }
   } else {
-    result = numStr;
+    result = integerPart;
+  }
+  
+  // Add decimal part if exists
+  if (decimalPart) {
+    result += '.' + decimalPart;
   }
   
   return num < 0 ? '-' + result : result;
 };
 
-// Convert number to words in Indian system (simplified for clarity)
+// Convert number to words in Indian system
 export const numberToIndianWords = (num: number): string => {
   if (isNaN(num)) return 'Zero';
   if (num === 0) return 'Zero';
@@ -47,10 +57,8 @@ export const numberToIndianWords = (num: number): string => {
   const isNegative = num < 0;
   let absNum = Math.abs(num);
   
-  // Handle zero
   if (absNum === 0) return 'Zero';
   
-  // Break into 2-digit groups for Indian numbering system
   const crore = Math.floor(absNum / 10000000);
   const lakh = Math.floor((absNum % 10000000) / 100000);
   const thousand = Math.floor((absNum % 100000) / 1000);
@@ -59,15 +67,7 @@ export const numberToIndianWords = (num: number): string => {
   let words = '';
   
   if (crore > 0) {
-    if (crore > 99) {
-      words += convertLessThanThousand(Math.floor(crore / 100)) + ' Hundred';
-      if (crore % 100 > 0) {
-        words += ' ' + convertLessThanThousand(crore % 100);
-      }
-      words += ' Crore';
-    } else {
-      words += convertLessThanThousand(crore) + ' Crore';
-    }
+    words += convertLessThanThousand(crore) + ' Crore';
   }
   
   if (lakh > 0) {
