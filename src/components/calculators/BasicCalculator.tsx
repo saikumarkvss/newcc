@@ -1,4 +1,6 @@
-// Basic calculator operations
+import React, { useState } from 'react';
+
+// Utility functions
 export const calculate = (expression: string): number => {
   if (!expression) return 0;
   
@@ -88,3 +90,104 @@ export const calculateEMI = (
     totalPayment
   };
 };
+
+// Basic Calculator Component
+const BasicCalculator: React.FC = () => {
+  const [display, setDisplay] = useState('0');
+  const [expression, setExpression] = useState('');
+
+  const handleNumber = (num: string) => {
+    if (display === '0') {
+      setDisplay(num);
+      setExpression(num);
+    } else {
+      setDisplay(display + num);
+      setExpression(expression + num);
+    }
+  };
+
+  const handleOperator = (op: string) => {
+    setDisplay(op);
+    setExpression(expression + op);
+  };
+
+  const handleEquals = () => {
+    try {
+      const result = calculate(expression).toString();
+      setDisplay(result);
+      setExpression(result);
+    } catch (error) {
+      setDisplay('Error');
+      setExpression('');
+    }
+  };
+
+  const handleClear = () => {
+    setDisplay('0');
+    setExpression('');
+  };
+
+  return (
+    <div className="bg-white rounded-lg shadow-lg p-6">
+      <div className="bg-gray-100 p-4 rounded-lg mb-4">
+        <div className="text-right text-2xl font-mono">{display}</div>
+      </div>
+      
+      <div className="grid grid-cols-4 gap-2">
+        <button onClick={handleClear} className="col-span-2 bg-red-500 text-white p-4 rounded hover:bg-red-600">
+          AC
+        </button>
+        <button onClick={() => handleOperator('÷')} className="bg-gray-200 p-4 rounded hover:bg-gray-300">÷</button>
+        <button onClick={() => handleOperator('×')} className="bg-gray-200 p-4 rounded hover:bg-gray-300">×</button>
+        
+        {[7, 8, 9].map(num => (
+          <button
+            key={num}
+            onClick={() => handleNumber(num.toString())}
+            className="bg-gray-100 p-4 rounded hover:bg-gray-200"
+          >
+            {num}
+          </button>
+        ))}
+        <button onClick={() => handleOperator('-')} className="bg-gray-200 p-4 rounded hover:bg-gray-300">-</button>
+        
+        {[4, 5, 6].map(num => (
+          <button
+            key={num}
+            onClick={() => handleNumber(num.toString())}
+            className="bg-gray-100 p-4 rounded hover:bg-gray-200"
+          >
+            {num}
+          </button>
+        ))}
+        <button onClick={() => handleOperator('+')} className="bg-gray-200 p-4 rounded hover:bg-gray-300">+</button>
+        
+        {[1, 2, 3].map(num => (
+          <button
+            key={num}
+            onClick={() => handleNumber(num.toString())}
+            className="bg-gray-100 p-4 rounded hover:bg-gray-200"
+          >
+            {num}
+          </button>
+        ))}
+        <button onClick={handleEquals} className="bg-blue-500 text-white p-4 rounded hover:bg-blue-600">=</button>
+        
+        <button
+          onClick={() => handleNumber('0')}
+          className="col-span-2 bg-gray-100 p-4 rounded hover:bg-gray-200"
+        >
+          0
+        </button>
+        <button
+          onClick={() => handleNumber('.')}
+          className="bg-gray-100 p-4 rounded hover:bg-gray-200"
+        >
+          .
+        </button>
+      </div>
+    </div>
+  );
+};
+
+export default BasicCalculator;
