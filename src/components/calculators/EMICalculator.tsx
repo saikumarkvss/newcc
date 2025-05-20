@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { CreditCard, DollarSign, Calendar, FileText, Download } from 'lucide-react';
-import { jsPDF } from 'jspdf';
 import Input from '../ui/Input';
+import Button from '../ui/Button';
 import { calculateEMI } from '../../utils/calculations';
 import { formatIndianNumber } from '../../utils/formatters';
-import Logo from '../ui/Logo';
 
 interface EMIDetails {
   emi: number;
@@ -33,45 +32,56 @@ const EMICalculator: React.FC = () => {
     const tenure = parseInt(loanTenure || '0', 10);
     
     if (amount > 0 && rate > 0 && tenure > 0) {
-      const isFlat = interestType === 'flat';
-      const result = calculateEMI(amount, rate, tenure, isFlat);
-      
+      const monthlyRate = interestType === 'reducing' ? rate / (12 * 100) : rate / 100;
+      let emi: number;
+      let totalInterest: number;
       let schedule: EMIDetails['schedule'] = [];
-      let remainingBalance = amount;
-      
-      if (isFlat) {
-        const monthlyPrincipal = amount / tenure;
-        const monthlyInterest = result.totalInterest / tenure;
+
+      if (interestType === 'reducing') {
+        // Reducing balance method
+        emi = (amount * monthlyRate * Math.pow(1 + monthlyRate, tenure)) / 
+              (Math.pow(1 + monthlyRate, tenure) - 1);
         
+        let remainingBalance = amount;
         for (let month = 1; month <= tenure; month++) {
+          const monthlyInterest = remainingBalance * monthlyRate;
+          const monthlyPrincipal = emi - monthlyInterest;
           remainingBalance -= monthlyPrincipal;
+          
           schedule.push({
             month,
-            emi: result.emi,
+            emi,
             principal: monthlyPrincipal,
             interest: monthlyInterest,
             balance: Math.max(0, remainingBalance)
           });
         }
       } else {
-        const monthlyRate = rate / (12 * 100);
+        // Flat rate method
+        const totalInterestAmount = amount * (rate / 100) * (tenure / 12);
+        emi = (amount + totalInterestAmount) / tenure;
+        const monthlyPrincipal = amount / tenure;
+        const monthlyInterest = totalInterestAmount / tenure;
+        
+        let remainingBalance = amount;
         for (let month = 1; month <= tenure; month++) {
-          const monthlyInterest = remainingBalance * monthlyRate;
-          const monthlyPrincipal = result.emi - monthlyInterest;
           remainingBalance -= monthlyPrincipal;
-          
           schedule.push({
             month,
-            emi: result.emi,
+            emi,
             principal: monthlyPrincipal,
             interest: monthlyInterest,
             balance: Math.max(0, remainingBalance)
           });
         }
       }
+
+      totalInterest = (emi * tenure) - amount;
       
       setEmiResult({
-        ...result,
+        emi,
+        totalInterest,
+        totalPayment: emi * tenure,
         schedule
       });
     } else {
@@ -86,65 +96,33 @@ const EMICalculator: React.FC = () => {
   const downloadPDF = () => {
     if (!emiResult) return;
 
-    const pdf = new jsPDF();
-    const pageWidth = pdf.internal.pageSize.width;
-    
-    // Add logo and title
-    pdf.addImage('path_to_logo.png', 'PNG', 20, 10, 30, 30);
-    pdf.setFontSize(20);
-    pdf.setTextColor(255, 106, 0); // Primary color
-    pdf.text('CC Calculator - Loan Repayment Schedule', pageWidth / 2, 30, { align: 'center' });
-    
-    // Add loan details
-    pdf.setFontSize(12);
-    pdf.setTextColor(0, 0, 0);
-    pdf.text(`Loan Amount: ₹${formatIndianNumber(parseFloat(loanAmount))}`, 20, 50);
-    pdf.text(`Interest Rate: ${interestRate}% (${interestType})`, 20, 60);
-    pdf.text(`Loan Tenure: ${loanTenure} months`, 20, 70);
-    pdf.text(`Monthly EMI: ₹${formatIndianNumber(Math.round(emiResult.emi))}`, 20, 80);
-    
-    // Add table headers
-    const headers = ['Month', 'EMI', 'Principal', 'Interest', 'Balance'];
-    let y = 100;
-    
-    // Draw table
-    pdf.setFillColor(0, 0, 0);
-    pdf.rect(20, y - 10, pageWidth - 40, 10, 'F');
-    pdf.setTextColor(255, 255, 255);
-    headers.forEach((header, index) => {
-      pdf.text(header, 30 + (index * 35), y - 4);
-    });
-    
-    // Add table data
-    pdf.setTextColor(0, 0, 0);
-    emiResult.schedule.forEach((row, index) => {
-      if (y > 250) {
-        pdf.addPage();
-        y = 30;
-      }
-      
-      const data = [
-        row.month.toString(),
-        formatIndianNumber(Math.round(row.emi)),
-        formatIndianNumber(Math.round(row.principal)),
-        formatIndianNumber(Math.round(row.interest)),
-        formatIndianNumber(Math.round(row.balance))
-      ];
-      
-      data.forEach((value, colIndex) => {
-        pdf.text(value, 30 + (colIndex * 35), y);
-      });
-      
-      y += 10;
-    });
-    
-    // Add download app button
-    pdf.setFillColor(255, 106, 0);
-    pdf.rect(pageWidth / 2 - 40, y + 10, 80, 10, 'F');
-    pdf.setTextColor(255, 255, 255);
-    pdf.text('Download App', pageWidth / 2, y + 16, { align: 'center' });
-    
-    pdf.save('loan-schedule.pdf');
+    const content = `
+CC Calculator - Loan Repayment Schedule
+
+Loan Amount: ₹${formatIndianNumber(parseFloat(loanAmount))}
+Interest Rate: ${interestRate}% (${interestType})
+Loan Tenure: ${loanTenure} months
+Monthly EMI: ₹${formatIndianNumber(Math.round(emiResult.emi))}
+
+Repayment Schedule:
+${emiResult.schedule.map(row => `
+Month ${row.month}
+EMI: ₹${formatIndianNumber(Math.round(row.emi))}
+Principal: ₹${formatIndianNumber(Math.round(row.principal))}
+Interest: ₹${formatIndianNumber(Math.round(row.interest))}
+Balance: ₹${formatIndianNumber(Math.round(row.balance))}
+`).join('\n')}
+`;
+
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'loan-schedule.txt';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -288,7 +266,7 @@ const EMICalculator: React.FC = () => {
                   className="flex items-center gap-2 text-primary hover:text-primary-light"
                 >
                   <Download size={18} />
-                  Download PDF
+                  Download
                 </button>
               </div>
               
