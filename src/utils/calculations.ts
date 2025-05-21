@@ -2,14 +2,8 @@
 export const calculate = (expression: string): number => {
   if (!expression) return 0;
   
-  // Remove consecutive operators and trailing operators
-  const cleanExpression = expression
-    .replace(/[+\-×÷*\/]+$/g, '') // Remove trailing operators
-    .replace(/([+\-×÷*\/])\1+/g, '$1') // Remove consecutive duplicate operators
-    .trim();
-  
-  // Return 0 if expression is empty after cleaning
-  if (!cleanExpression || cleanExpression === '') return 0;
+  // Remove trailing operators
+  const cleanExpression = expression.replace(/[+\-×÷*\/]$/, '');
   
   // Replace visual operators with JS operators
   const sanitizedExpression = cleanExpression
@@ -17,12 +11,6 @@ export const calculate = (expression: string): number => {
     .replace(/÷/g, '/');
   
   try {
-    // Validate the expression before evaluation
-    if (!/^-?\d+(?:[+\-*\/]\d+)*$/.test(sanitizedExpression.replace(/\s/g, ''))) {
-      throw new Error('Invalid expression');
-    }
-    
-    // Use Function constructor to evaluate the expression
     // eslint-disable-next-line no-new-func
     return new Function(`return ${sanitizedExpression}`)();
   } catch (error) {
@@ -38,22 +26,22 @@ export const calculatePercentage = (base: number, percentage: number): number =>
 
 // Calculate percentage operation
 export const calculatePercentageOperation = (expression: string, percentage: number): number => {
-  // Find the last number and operator in the expression
-  const matches = expression.match(/([-+×÷])?(\d+\.?\d*)$/);
-  if (!matches) return 0;
-  
-  const operator = matches[1] || '';
-  const lastNumber = parseFloat(matches[2]);
-  const baseExpression = expression.slice(0, -matches[0].length).trim();
-  
-  if (!baseExpression) {
-    // If there's no operation, just calculate percentage of the number
+  const parts = expression.split(/([+\-×÷])/);
+  if (parts.length < 1) return 0;
+
+  const lastNumber = parseFloat(parts[parts.length - 1]);
+  if (isNaN(lastNumber)) return 0;
+
+  if (parts.length === 1) {
+    // Single number case
     return (lastNumber * percentage) / 100;
   }
-  
+
+  const operator = parts[parts.length - 2];
+  const baseExpression = parts.slice(0, -2).join('');
   const baseNumber = calculate(baseExpression);
   const percentageValue = (lastNumber * percentage) / 100;
-  
+
   switch (operator) {
     case '+':
       return baseNumber + percentageValue;
