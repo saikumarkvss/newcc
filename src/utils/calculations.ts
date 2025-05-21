@@ -27,11 +27,12 @@ export const calculatePercentage = (base: number, percentage: number): number =>
 
 // Calculate percentage operation
 export const calculatePercentageOperation = (expression: string, percentage: number): number => {
-  // Find the last number in the expression
-  const matches = expression.match(/[-]?\d+\.?\d*$/);
+  // Find the last number and operator in the expression
+  const matches = expression.match(/([-+×÷])?(\d+\.?\d*)$/);
   if (!matches) return 0;
   
-  const lastNumber = parseFloat(matches[0]);
+  const operator = matches[1] || '';
+  const lastNumber = parseFloat(matches[2]);
   const baseExpression = expression.slice(0, -matches[0].length).trim();
   
   if (!baseExpression) {
@@ -39,22 +40,20 @@ export const calculatePercentageOperation = (expression: string, percentage: num
     return (lastNumber * percentage) / 100;
   }
   
-  const operator = baseExpression.slice(-1);
-  const baseNumber = calculate(baseExpression.slice(0, -1));
+  const baseNumber = calculate(baseExpression);
+  const percentageValue = (lastNumber * percentage) / 100;
   
   switch (operator) {
     case '+':
-      return baseNumber + ((baseNumber * percentage) / 100);
+      return baseNumber + percentageValue;
     case '-':
-      return baseNumber - ((baseNumber * percentage) / 100);
+      return baseNumber - percentageValue;
     case '×':
-    case '*':
       return baseNumber * (percentage / 100);
     case '÷':
-    case '/':
       return baseNumber / (percentage / 100);
     default:
-      return (lastNumber * percentage) / 100;
+      return percentageValue;
   }
 };
 
@@ -68,23 +67,77 @@ export const calculatePercentageDifference = (fromAmount: number, toAmount: numb
 export const calculateEMI = (
   principalAmount: number,
   interestRate: number,
-  tenureMonths: number
-): { emi: number; totalInterest: number; totalPayment: number } => {
-  // Convert annual interest rate to monthly
-  const monthlyInterestRate = interestRate / (12 * 100);
+  tenureMonths: number,
+  type: 'reducing' | 'flat' = 'reducing'
+): { 
+  emi: number; 
+  totalInterest: number; 
+  totalPayment: number;
+  schedule: Array<{
+    month: number;
+    emi: number;
+    principal: number;
+    interest: number;
+    balance: number;
+  }>;
+} => {
+  let emi: number;
+  let totalInterest: number;
+  let totalPayment: number;
+  let schedule = [];
+
+  if (type === 'reducing') {
+    // Convert annual interest rate to monthly
+    const monthlyInterestRate = interestRate / (12 * 100);
+    
+    // Calculate EMI
+    emi = principalAmount * monthlyInterestRate * 
+      Math.pow(1 + monthlyInterestRate, tenureMonths) / 
+      (Math.pow(1 + monthlyInterestRate, tenureMonths) - 1);
+    
+    // Generate amortization schedule
+    let remainingBalance = principalAmount;
+    for (let month = 1; month <= tenureMonths; month++) {
+      const monthlyInterest = remainingBalance * monthlyInterestRate;
+      const monthlyPrincipal = emi - monthlyInterest;
+      remainingBalance = Math.max(0, remainingBalance - monthlyPrincipal);
+      
+      schedule.push({
+        month,
+        emi,
+        principal: monthlyPrincipal,
+        interest: monthlyInterest,
+        balance: remainingBalance
+      });
+    }
+  } else {
+    // Flat rate calculation
+    const yearlyInterest = principalAmount * (interestRate / 100);
+    const totalInterestAmount = yearlyInterest * (tenureMonths / 12);
+    const monthlyPrincipal = principalAmount / tenureMonths;
+    const monthlyInterest = totalInterestAmount / tenureMonths;
+    emi = monthlyPrincipal + monthlyInterest;
+    
+    let remainingBalance = principalAmount;
+    for (let month = 1; month <= tenureMonths; month++) {
+      remainingBalance = Math.max(0, remainingBalance - monthlyPrincipal);
+      schedule.push({
+        month,
+        emi,
+        principal: monthlyPrincipal,
+        interest: monthlyInterest,
+        balance: remainingBalance
+      });
+    }
+  }
   
-  // Calculate EMI
-  const emi = principalAmount * monthlyInterestRate * 
-    Math.pow(1 + monthlyInterestRate, tenureMonths) / 
-    (Math.pow(1 + monthlyInterestRate, tenureMonths) - 1);
-  
-  // Calculate total payment and interest
-  const totalPayment = emi * tenureMonths;
-  const totalInterest = totalPayment - principalAmount;
+  totalPayment = emi * tenureMonths;
+  totalInterest = totalPayment - principalAmount;
   
   return {
     emi,
     totalInterest,
-    totalPayment
+    totalPayment,
+    schedule
   };
 };
