@@ -2,8 +2,14 @@
 export const calculate = (expression: string): number => {
   if (!expression) return 0;
   
-  // Remove trailing operators
-  const cleanExpression = expression.replace(/[+\-×÷*\/]$/, '');
+  // Remove consecutive operators and trailing operators
+  const cleanExpression = expression
+    .replace(/[+\-×÷*\/]+$/g, '') // Remove trailing operators
+    .replace(/([+\-×÷*\/])\1+/g, '$1') // Remove consecutive duplicate operators
+    .trim();
+  
+  // Return 0 if expression is empty after cleaning
+  if (!cleanExpression || cleanExpression === '') return 0;
   
   // Replace visual operators with JS operators
   const sanitizedExpression = cleanExpression
@@ -11,6 +17,11 @@ export const calculate = (expression: string): number => {
     .replace(/÷/g, '/');
   
   try {
+    // Validate the expression before evaluation
+    if (!/^-?\d+(?:[+\-*\/]\d+)*$/.test(sanitizedExpression.replace(/\s/g, ''))) {
+      throw new Error('Invalid expression');
+    }
+    
     // Use Function constructor to evaluate the expression
     // eslint-disable-next-line no-new-func
     return new Function(`return ${sanitizedExpression}`)();
