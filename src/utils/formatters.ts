@@ -1,33 +1,39 @@
 // Format number to Indian format (lakhs, crores)
 export const formatIndianNumber = (num: number): string => {
   if (isNaN(num)) return '0';
-  const numStr = Math.abs(num).toString();
-  let result = '';
   
-  if (numStr.length > 3) {
-    // Add comma after first 3 digits
-    result = ',' + numStr.substring(numStr.length - 3);
-    let remaining = numStr.substring(0, numStr.length - 3);
+  // Handle decimal numbers
+  const [integerPart, decimalPart] = Math.abs(num).toString().split('.');
+  
+  // Format integer part
+  let formattedInteger = '';
+  if (integerPart.length > 3) {
+    // Add comma after first 3 digits from right
+    formattedInteger = ',' + integerPart.substring(integerPart.length - 3);
+    let remaining = integerPart.substring(0, integerPart.length - 3);
     
-    // Add comma after every 2 digits from right to left
+    // Add comma after every 2 digits from right
     while (remaining.length > 0) {
-      result = (remaining.length > 0 ? ',' : '') + 
-               remaining.substring(Math.max(0, remaining.length - 2)) + result;
+      formattedInteger = (remaining.length > 0 ? ',' : '') + 
+                        remaining.substring(Math.max(0, remaining.length - 2)) + 
+                        formattedInteger;
       remaining = remaining.substring(0, Math.max(0, remaining.length - 2));
     }
     
     // Remove first comma if present
-    if (result.startsWith(',')) {
-      result = result.substring(1);
-    }
+    formattedInteger = formattedInteger.startsWith(',') ? 
+                      formattedInteger.substring(1) : 
+                      formattedInteger;
   } else {
-    result = numStr;
+    formattedInteger = integerPart;
   }
   
+  // Combine integer and decimal parts
+  const result = decimalPart ? `${formattedInteger}.${decimalPart}` : formattedInteger;
   return num < 0 ? '-' + result : result;
 };
 
-// Convert number to words in Indian system (simplified for clarity)
+// Convert number to words in Indian system
 export const numberToIndianWords = (num: number): string => {
   if (isNaN(num)) return 'Zero';
   if (num === 0) return 'Zero';
@@ -50,7 +56,7 @@ export const numberToIndianWords = (num: number): string => {
   // Handle zero
   if (absNum === 0) return 'Zero';
   
-  // Break into 2-digit groups for Indian numbering system
+  // Break into groups for Indian numbering system
   const crore = Math.floor(absNum / 10000000);
   const lakh = Math.floor((absNum % 10000000) / 100000);
   const thousand = Math.floor((absNum % 100000) / 1000);
@@ -59,15 +65,7 @@ export const numberToIndianWords = (num: number): string => {
   let words = '';
   
   if (crore > 0) {
-    if (crore > 99) {
-      words += convertLessThanThousand(Math.floor(crore / 100)) + ' Hundred';
-      if (crore % 100 > 0) {
-        words += ' ' + convertLessThanThousand(crore % 100);
-      }
-      words += ' Crore';
-    } else {
-      words += convertLessThanThousand(crore) + ' Crore';
-    }
+    words += convertLessThanThousand(crore) + ' Crore';
   }
   
   if (lakh > 0) {
@@ -93,6 +91,7 @@ export const formatCalculation = (calculation: string): string => {
   return calculation
     .replace(/\*/g, '×')
     .replace(/\//g, '÷')
+    .replace(/(\d+)\s+(\d+%)/g, '$1$2') // Remove space between number and percentage
     .replace(/\s+/g, ' ')
     .trim();
 };
